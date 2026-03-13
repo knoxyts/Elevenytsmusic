@@ -1,26 +1,10 @@
-# ==============================================================================
-# play.py - Main Play Command Handler
-# ==============================================================================
-# This is the core plugin that handles all play-related commands:
-# - /play <query> - Play audio from YouTube search or URL
-# - /playforce - Force play (skip queue and play immediately)
-# - /cplay - Play in connected channel
-# 
-# Supports:
-# - YouTube search queries
-# - YouTube URLs (videos and playlists)
-# - Telegram audio files (via reply)
-# - Queue management
-# - Channel play mode
-# ==============================================================================
-
 from pyrogram import filters
 from pyrogram import types
 from pyrogram.errors import FloodWait, MessageIdInvalid, MessageDeleteForbidden, ChatSendPlainForbidden, ChatWriteForbidden
 
-from HasiiMusic import tune, app, config, db, lang, queue, tg, yt
-from HasiiMusic.helpers import buttons, utils
-from HasiiMusic.helpers._play import checkUB
+from Elevenyts import tune, app, config, db, lang, queue, tg, yt
+from Elevenyts.helpers import buttons, utils
+from Elevenyts.helpers._play import checkUB
 import asyncio
 import logging
 
@@ -309,7 +293,7 @@ async def play_hndlr(
             
             # ✨ NEW: Start preloading queued tracks in background
             try:
-                from HasiiMusic import preload
+                from Elevenyts import preload
                 asyncio.create_task(preload.start_preload(chat_id, count=2))
             except Exception:
                 # Non-critical, continue without preload
@@ -351,7 +335,7 @@ async def play_hndlr(
                 sent,
                 "<blockquote>❌ YouTube bot detection triggered.\n\n"
                 "Solution:\n"
-                "• Update YouTube cookies in `HasiiMusic/cookies/` folder\n"
+                "• Update YouTube cookies in `Elevenyts/cookies/` folder\n"
                 "• Wait a few minutes before trying again\n"
                 "• Try /radio for uninterrupted music\n\n"
                 f"Support: {config.SUPPORT_CHAT}</blockquote>"
