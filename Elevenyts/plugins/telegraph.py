@@ -8,24 +8,31 @@ import requests
 def upload_file(file_path):
     url = "https://catbox.moe/user/api.php"
     data = {"reqtype": "fileupload", "json": "true"}
-    files = {"fileToUpload": open(file_path, "rb")}
-    response = requests.post(url, data=data, files=files)
 
-    if response.status_code == 200:
-        return True, response.text.strip()
-    else:
-        return False, f"ᴇʀʀᴏʀ: {response.status_code} - {response.text}"
+    try:
+        with open(file_path, "rb") as f:
+            files = {"fileToUpload": f}
+            response = requests.post(url, data=data, files=files)
+
+        if response.status_code == 200:
+            return True, response.text.strip()
+        else:
+            return False, f"Error: {response.status_code} - {response.text}"
+
+    except Exception as e:
+        return False, str(e)
 
 
 @app.on_message(filters.command(["tgm", "tgt", "telegraph", "tl"]))
 async def get_link_group(client, message):
     if not message.reply_to_message:
         return await message.reply_text(
-            "❍ ᴘʟᴇᴀsᴇ ʀᴇᴘʟʏ ᴛᴏ ᴀ ᴍᴇᴅɪᴀ ᴛᴏ ᴜᴘʟᴏᴀᴅ ᴏɴ ᴛᴇʟᴇɢʀᴀᴘʜ"
+            "❍ Please reply to a media file to upload."
         )
 
     media = message.reply_to_message
     file_size = 0
+
     if media.photo:
         file_size = media.photo.file_size
     elif media.video:
@@ -34,53 +41,57 @@ async def get_link_group(client, message):
         file_size = media.document.file_size
 
     if file_size > 200 * 1024 * 1024:
-        return await message.reply_text("Pʟᴇᴀsᴇ ᴘʀᴏᴠɪᴅᴇ ᴀ ᴍᴇᴅɪᴀ ғɪʟᴇ ᴜɴᴅᴇʀ 200MB.")
+        return await message.reply_text("❍ File size must be under 200MB.")
+
+    text = await message.reply("❍ Processing...")
+
+    async def progress(current, total):
+        try:
+            percent = current * 100 / total
+            await text.edit_text(f"❍ Downloading... {percent:.1f}%")
+        except:
+            pass
+
+    local_path = None
 
     try:
-        text = await message.reply("❍ ᴘʀᴏᴄᴇssɪɴɢ...")
+        # Download
+        local_path = await media.download(progress=progress)
 
-        async def progress(current, total):
-            try:
-                await text.edit_text(f"❍ ᴅᴏᴡɴʟᴏᴀᴅɪɴɢ... {current * 100 / total:.1f}%")
-            except Exception:
-                pass
+        await text.edit_text("❍ Uploading...")
 
-        try:
-            local_path = await media.download(progress=progress)
-            await text.edit_text("❍ ᴜᴘʟᴏᴀᴅɪɴɢ ᴛᴏ ᴛᴇʟᴇɢʀᴀᴘʜ...")
+        # Upload
+        success, upload_path = upload_file(local_path)
 
-            success, upload_path = upload_file(local_path)
-
-            if success:
-                await text.edit_text(
-                    f"❍ | [ᴛᴀᴘ ᴛʜᴇ ʟɪɴᴋ]({upload_path})",
-                    reply_markup=InlineKeyboardMarkup(
+        if success:
+            await text.edit_text(
+                f"❍ Upload Complete!\n\n<a href='{upload_path}'>🔗 Tap here to open</a>",
+                parse_mode="html",
+                reply_markup=InlineKeyboardMarkup(
+                    [
                         [
-                            [
-                                InlineKeyboardButton(
-                                    "❍ ʜᴇʀᴇ ɪs ʏᴏᴜʀ ʟɪɴᴋ",
-                                    url=upload_path,
-                                )
-                            ]
+                            InlineKeyboardButton(
+                                "🔗 Open Link",
+                                url=upload_path,
+                            )
                         ]
-                    ),
-                )
-            else:
-                await text.edit_text(
-                    f"❍ ᴀɴ ᴇʀʀᴏʀ ᴏᴄᴄᴜʀʀᴇᴅ ᴡʜɪʟᴇ ᴜᴘʟᴏᴀᴅɪɴɢ ʏᴏᴜʀ ғɪʟᴇ\n{upload_path}"
-                )
+                    ]
+                ),
+                disable_web_page_preview=True
+            )
+        else:
+            await text.edit_text(
+                f"❍ Upload Failed\n\nReason: {upload_path}"
+            )
 
+    except Exception as e:
+        await text.edit_text(
+            f"❍ Upload Failed\n\nReason: {str(e)}"
+        )
+
+    finally:
+        if local_path and os.path.exists(local_path):
             try:
                 os.remove(local_path)
-            except Exception:
+            except:
                 pass
-
-        except Exception as e:
-            await text.edit_text(f"❍ ғɪʟᴇ ᴜᴘʟᴏᴀᴅ ғᴀɪʟᴇᴅ\n\n❍ <i>ʀᴇᴀsᴏɴ: {e}</i>")
-            try:
-                os.remove(local_path)
-            except Exception:
-                pass
-            return
-    except Exception:
-        pass
